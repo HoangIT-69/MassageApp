@@ -5,7 +5,7 @@ loadRootEnv();
 
 const nextConfig: NextConfig = {
   transpilePackages: ["@zalo/core"],
-  serverExternalPackages: ["better-sqlite3"],
+  serverExternalPackages: ["mysql2"],
 };
 
 export default nextConfig;

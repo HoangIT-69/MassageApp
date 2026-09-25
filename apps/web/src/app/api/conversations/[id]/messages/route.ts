@@ -22,7 +22,7 @@ export function GET(request: Request, context: RouteContext): Promise<Response> 
     const after = readAfter(request);
     if (after === null) return json({ error: "Dữ liệu không hợp lệ" }, 400);
     const { id } = await context.params;
-    return json({ messages: listChatMessages(vendorId, id, after) });
+    return json({ messages: await listChatMessages(vendorId, id, after) });
   });
 }
 
@@ -37,6 +37,6 @@ export function POST(request: Request, context: RouteContext): Promise<Response>
     }
     const parsed = sendSchema.safeParse(body);
     if (!parsed.success) return json({ error: "Dữ liệu không hợp lệ" }, 400);
-    return json(sendChatMessage(vendorId, id, parsed.data.content), 201);
+    return json(await sendChatMessage(vendorId, id, parsed.data.content), 201);
   });
 }

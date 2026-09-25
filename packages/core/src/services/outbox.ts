@@ -9,13 +9,13 @@ export type OutboxItem = MessageRecord & {
   threadType: string;
 };
 
-export function takeOutbox(db: AppDatabase, vendorId: string): OutboxItem[] {
-  const queued = claimQueued(db, vendorId, OUTBOX_BATCH_SIZE);
+export async function takeOutbox(db: AppDatabase, vendorId: string): Promise<OutboxItem[]> {
+  const queued = await claimQueued(db, vendorId, OUTBOX_BATCH_SIZE);
   const ready: OutboxItem[] = [];
   for (const message of queued) {
-    const conversation = getConversation(db, vendorId, message.conversationId);
+    const conversation = await getConversation(db, vendorId, message.conversationId);
     if (!conversation) {
-      markMessageStatus(db, vendorId, message.id, "failed");
+      await markMessageStatus(db, vendorId, message.id, "failed");
       continue;
     }
     ready.push({ ...message, threadId: conversation.threadId, threadType: conversation.threadType });
@@ -23,11 +23,11 @@ export function takeOutbox(db: AppDatabase, vendorId: string): OutboxItem[] {
   return ready;
 }
 
-export function completeOutboxSend(
+export async function completeOutboxSend(
   db: AppDatabase,
   vendorId: string,
   messageId: string,
   ok: boolean,
-): void {
-  markMessageStatus(db, vendorId, messageId, ok ? "sent" : "failed");
+): Promise<void> {
+  await markMessageStatus(db, vendorId, messageId, ok ? "sent" : "failed");
 }

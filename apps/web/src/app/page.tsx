@@ -6,6 +6,12 @@ export default function HomePage() {
         Ứng dụng chat chạy trên điện thoại. Máy chủ này cung cấp API cho danh sách hội thoại, mã QR
         và công tắc AI.
       </p>
+      <a
+        className="text-sm font-medium text-zinc-900 underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-900"
+        href="/admin/quan"
+      >
+        Mở admin quán
+      </a>
     </main>
   );
 }

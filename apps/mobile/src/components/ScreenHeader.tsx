@@ -3,10 +3,19 @@ import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { theme, spacing } from "../theme";
 
-export function ScreenHeader({ title, right }: { title: string; right?: ReactNode }) {
+export function ScreenHeader({
+  title,
+  left,
+  right,
+}: {
+  title: string;
+  left?: ReactNode;
+  right?: ReactNode;
+}) {
   return (
     <SafeAreaView edges={["top"]} style={styles.safe}>
-      <View style={[styles.row, right ? styles.rowWithAction : null]}>
+      <View style={styles.row}>
+        {left}
         <Text style={styles.title} numberOfLines={1}>
           {title}
         </Text>
@@ -27,6 +36,5 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.md,
   },
-  rowWithAction: { paddingRight: 180 },
   title: { color: theme.headerText, fontSize: 18, fontWeight: "700", flex: 1 },
 });

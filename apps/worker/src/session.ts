@@ -7,10 +7,14 @@ import {
   type LoginQRCallbackEvent,
 } from "zca-js";
 import {
+  attachmentPayload,
   clearCredentials,
   completeOutboxSend,
   createDeepInfraClient,
+  createObjectStore,
+  ensureShopSeed,
   ingestInbound,
+  loadPhotoBytes,
   openDatabase,
   readCredentials,
   readRelink,
@@ -25,6 +29,7 @@ import {
 } from "@zalo/core";
 import { ZALO_USER_AGENT, type WorkerEnv } from "./config";
 import { toInbound } from "./map-message";
+import { enrichInbound } from "./peer";
 
 const OUTBOX_POLL_MS = 1000;
 
@@ -71,8 +76,13 @@ async function connect(env: WorkerEnv, db: AppDatabase): Promise<API> {
 
 function rememberQr(env: WorkerEnv, db: AppDatabase, event: LoginQRCallbackEvent): void {
   if (event.type === LoginQRCallbackEventType.QRCodeGenerated) {
-    setAwaitingQr(db, env.vendorId, toQrDataUrl(event.data.image));
-    console.info("Đã tạo mã QR. Quét bằng ứng dụng Zalo.");
+    void setAwaitingQr(db, env.vendorId, toQrDataUrl(event.data.image))
+      .then(() => {
+        console.info("Đã tạo mã QR. Quét bằng ứng dụng Zalo.");
+      })
+      .catch((error: unknown) => {
+        console.error(error instanceof Error ? error.message : "Không lưu được mã QR");
+      });
     return;
   }
   if (event.type === LoginQRCallbackEventType.QRCodeExpired) {
@@ -99,9 +109,11 @@ function stopListener(api: API): void {
 
 function attachListener(api: API, db: AppDatabase, env: WorkerEnv, ai: AiClient): void {
   api.listener.on("message", (message) => {
-    void ingestInbound(db, env.vendorId, toInbound(message), ai).catch((error: unknown) => {
-      console.error(error instanceof Error ? error.name : "inbound failed");
-    });
+    void enrichInbound(api, db, env.vendorId, toInbound(message))
+      .then((input) => ingestInbound(db, env.vendorId, input, ai))
+      .catch((error: unknown) => {
+        console.error(error instanceof Error ? error.message : "inbound failed");
+      });
   });
   api.listener.on("closed", (code) => {
     if (code === CloseReason.DuplicateConnection) {
@@ -115,9 +127,12 @@ function attachListener(api: API, db: AppDatabase, env: WorkerEnv, ai: AiClient)
 function watchOutbox(api: API, db: AppDatabase, env: WorkerEnv, seenRelink: number): () => void {
   let flushing = false;
   const timer = setInterval(() => {
-    if (flushing || readRelink(db, env.vendorId) !== seenRelink) return;
+    if (flushing) return;
     flushing = true;
-    void flushOutbox(api, db, env.vendorId).finally(() => {
+    void (async () => {
+      if ((await readRelink(db, env.vendorId)) !== seenRelink) return;
+      await flushOutbox(api, db, env);
+    })().finally(() => {
       flushing = false;
     });
   }, OUTBOX_POLL_MS);
@@ -128,11 +143,12 @@ function watchOutbox(api: API, db: AppDatabase, env: WorkerEnv, seenRelink: numb
 function waitForRelink(db: AppDatabase, vendorId: string, seenRelink: number, api: API): Promise<number> {
   return new Promise((resolve) => {
     const timer = setInterval(() => {
-      const current = readRelink(db, vendorId);
-      if (current === seenRelink) return;
-      clearInterval(timer);
-      stopListener(api);
-      resolve(current);
+      void readRelink(db, vendorId).then((current) => {
+        if (current === seenRelink) return;
+        clearInterval(timer);
+        stopListener(api);
+        resolve(current);
+      });
     }, OUTBOX_POLL_MS);
     timer.unref?.();
   });
@@ -146,11 +162,11 @@ async function holdSession(
   seenRelink: number,
 ): Promise<number> {
   const profile = await api.fetchAccountInfo().catch(() => null);
-  if (readRelink(db, env.vendorId) !== seenRelink) {
+  if ((await readRelink(db, env.vendorId)) !== seenRelink) {
     stopListener(api);
     return readRelink(db, env.vendorId);
   }
-  setZaloConnected(db, env.vendorId, displayNameFrom(profile));
+  await setZaloConnected(db, env.vendorId, displayNameFrom(profile));
   attachListener(api, db, env, ai);
   const stopFlush = watchOutbox(api, db, env, seenRelink);
   const nextRelink = await waitForRelink(db, env.vendorId, seenRelink, api);
@@ -159,12 +175,13 @@ async function holdSession(
 }
 
 export async function startWorker(env: WorkerEnv): Promise<void> {
-  const db = openDatabase(env.databasePath);
+  const db = await openDatabase(env.databaseUrl);
+  await ensureShopSeed(db, env.vendorId);
   const ai = createDeepInfraClient({ apiKey: env.deepinfraApiKey });
-  let seenRelink = readRelink(db, env.vendorId);
+  let seenRelink = await readRelink(db, env.vendorId);
   for (;;) {
     const api = await connect(env, db);
-    const relinkNow = readRelink(db, env.vendorId);
+    const relinkNow = await readRelink(db, env.vendorId);
     if (relinkNow !== seenRelink) {
       seenRelink = relinkNow;
       clearCredentials(env.credentialsPath);
@@ -175,16 +192,22 @@ export async function startWorker(env: WorkerEnv): Promise<void> {
   }
 }
 
-async function flushOutbox(api: API, db: AppDatabase, vendorId: string): Promise<void> {
-  const batch = takeOutbox(db, vendorId);
+async function flushOutbox(api: API, db: AppDatabase, env: WorkerEnv): Promise<void> {
+  const batch = await takeOutbox(db, env.vendorId);
   for (const item of batch) {
     const type = item.threadType === "group" ? ThreadType.Group : ThreadType.User;
     try {
-      await api.sendMessage({ msg: item.content }, item.threadId, type);
-      completeOutboxSend(db, vendorId, item.id, true);
+      if (item.attachmentPath) {
+        const body = await loadPhotoBytes(createObjectStore(env.objectStore), env.dataDir, item.attachmentPath);
+        const file = attachmentPayload(item.attachmentPath, body);
+        await api.sendMessage({ msg: item.content, attachments: [file] }, item.threadId, type);
+      } else {
+        await api.sendMessage({ msg: item.content }, item.threadId, type);
+      }
+      await completeOutboxSend(db, env.vendorId, item.id, true);
     } catch (error) {
-      completeOutboxSend(db, vendorId, item.id, false);
-      console.error(error instanceof Error ? error.name : "send failed");
+      await completeOutboxSend(db, env.vendorId, item.id, false);
+      console.error(error instanceof Error ? error.message : "send failed");
     }
   }
 }

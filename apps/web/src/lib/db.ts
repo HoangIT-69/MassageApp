@@ -1,9 +1,20 @@
-import { openDatabase, type AppDatabase } from "@zalo/core";
+import { ensureShopSeed, openDatabase, type AppDatabase } from "@zalo/core";
 import { getEnv } from "@/config/env";
 
-let database: AppDatabase | null = null;
+let opening: Promise<AppDatabase> | null = null;
 
-export function getDb(): AppDatabase {
-  if (!database) database = openDatabase(getEnv().databasePath);
-  return database;
+export function getDb(): Promise<AppDatabase> {
+  if (!opening) {
+    const env = getEnv();
+    opening = openDatabase(env.databaseUrl)
+      .then(async (db) => {
+        await ensureShopSeed(db, env.vendorId);
+        return db;
+      })
+      .catch((error: unknown) => {
+        opening = null;
+        throw error;
+      });
+  }
+  return opening;
 }

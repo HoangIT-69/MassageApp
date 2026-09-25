@@ -1,4 +1,5 @@
 CLAUDE.md
+.cursor
 node_modules
 *.tsbuildinfo
 .next

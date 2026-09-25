@@ -14,6 +14,22 @@ export const SELF_ECHO_WINDOW_MS = 120_000;
 
 export const OUTBOX_BATCH_SIZE = 5;
 
+export const SUMMARY_EVERY_N = 10;
+
+export const FACT_CONFIDENCE_FLOOR = 50;
+
+export const FACT_INJECT_CAP = 24;
+
+export const SUMMARY_INJECT_CAP = 5;
+
+export const FACTS_PER_TURN = 5;
+
+export const MAX_PHOTO_BYTES = 5_000_000;
+
+export const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
+
+export const WEEKDAY_LABELS = ["", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7", "Chủ nhật"];
+
 export const DEEPINFRA_URL = "https://api.deepinfra.com/v1/openai/chat/completions";
 
 export const DEEPINFRA_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash";

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { and, asc, desc, eq, gt, isNull, ne } from "drizzle-orm";
 import { HISTORY_LIMIT, MESSAGE_PAGE_SIZE, SELF_ECHO_WINDOW_MS } from "../constants";
 import type { AppDatabase } from "../db/client";
+import { affectedRows } from "../db/sql";
 import { messages } from "../db/schema";
 import type { Direction, MessageRecord, MessageSource, MessageStatus } from "../types";
 
@@ -11,36 +12,41 @@ export type NewMessage = {
   direction: Direction;
   source: MessageSource;
   content: string;
+  attachmentPath?: string | null;
   zaloMsgId: string | null;
   status: MessageStatus;
   createdAt: number;
 };
 
-export function findMessageByZaloId(
+export async function findMessageByZaloId(
   db: AppDatabase,
   vendorId: string,
   zaloMsgId: string,
-): MessageRecord | null {
-  const row = db
+): Promise<MessageRecord | null> {
+  const rows = await db
     .select()
     .from(messages)
     .where(and(eq(messages.vendorId, vendorId), eq(messages.zaloMsgId, zaloMsgId)))
-    .get();
-  return row ?? null;
+    .limit(1);
+  return rows[0] ?? null;
 }
 
-export function insertMessage(db: AppDatabase, input: NewMessage): MessageRecord {
-  const created: MessageRecord = { id: randomUUID(), ...input };
-  db.insert(messages).values(created).run();
+export async function insertMessage(db: AppDatabase, input: NewMessage): Promise<MessageRecord> {
+  const created: MessageRecord = {
+    id: randomUUID(),
+    ...input,
+    attachmentPath: input.attachmentPath ?? null,
+  };
+  await db.insert(messages).values(created);
   return created;
 }
 
-export function listMessages(
+export async function listMessages(
   db: AppDatabase,
   vendorId: string,
   conversationId: string,
   after: number,
-): MessageRecord[] {
+): Promise<MessageRecord[]> {
   return db
     .select()
     .from(messages)
@@ -52,16 +58,15 @@ export function listMessages(
       ),
     )
     .orderBy(asc(messages.createdAt))
-    .limit(MESSAGE_PAGE_SIZE)
-    .all();
+    .limit(MESSAGE_PAGE_SIZE);
 }
 
-export function listRecentMessages(
+export async function listRecentMessages(
   db: AppDatabase,
   vendorId: string,
   conversationId: string,
-): MessageRecord[] {
-  const rows = db
+): Promise<MessageRecord[]> {
+  const rows = await db
     .select()
     .from(messages)
     .where(
@@ -72,19 +77,38 @@ export function listRecentMessages(
       ),
     )
     .orderBy(desc(messages.createdAt))
-    .limit(HISTORY_LIMIT)
-    .all();
+    .limit(HISTORY_LIMIT);
   return rows.reverse();
 }
 
-export function findSelfEcho(
+export async function countMessagesSince(
+  db: AppDatabase,
+  vendorId: string,
+  conversationId: string,
+  afterCreatedAt: number,
+): Promise<MessageRecord[]> {
+  return db
+    .select()
+    .from(messages)
+    .where(
+      and(
+        eq(messages.vendorId, vendorId),
+        eq(messages.conversationId, conversationId),
+        ne(messages.status, "failed"),
+        gt(messages.createdAt, afterCreatedAt),
+      ),
+    )
+    .orderBy(asc(messages.createdAt));
+}
+
+export async function findSelfEcho(
   db: AppDatabase,
   vendorId: string,
   conversationId: string,
   content: string,
   timestamp: number,
-): MessageRecord | null {
-  const row = db
+): Promise<MessageRecord | null> {
+  const rows = await db
     .select()
     .from(messages)
     .where(
@@ -98,44 +122,55 @@ export function findSelfEcho(
       ),
     )
     .orderBy(desc(messages.createdAt))
-    .limit(1)
-    .get();
-  return row ?? null;
+    .limit(1);
+  return rows[0] ?? null;
 }
 
-export function attachZaloMsgId(
+export async function attachZaloMsgId(
   db: AppDatabase,
   vendorId: string,
   messageId: string,
   zaloMsgId: string,
   status: MessageStatus,
-): void {
-  db.update(messages)
+): Promise<void> {
+  await db
+    .update(messages)
     .set({ zaloMsgId, status })
-    .where(and(eq(messages.vendorId, vendorId), eq(messages.id, messageId)))
-    .run();
+    .where(and(eq(messages.vendorId, vendorId), eq(messages.id, messageId)));
 }
 
-export function claimQueued(db: AppDatabase, vendorId: string, limit: number): MessageRecord[] {
+export async function claimQueued(
+  db: AppDatabase,
+  vendorId: string,
+  limit: number,
+): Promise<MessageRecord[]> {
   return db
     .select()
     .from(messages)
     .where(and(eq(messages.vendorId, vendorId), eq(messages.status, "queued")))
     .orderBy(asc(messages.createdAt))
-    .limit(limit)
-    .all();
+    .limit(limit);
 }
 
-export function markMessageStatus(
+export async function markMessageStatus(
   db: AppDatabase,
   vendorId: string,
   messageId: string,
   status: "sent" | "failed",
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .update(messages)
     .set({ status })
-    .where(and(eq(messages.vendorId, vendorId), eq(messages.id, messageId)))
-    .run();
-  return result.changes > 0;
+    .where(and(eq(messages.vendorId, vendorId), eq(messages.id, messageId)));
+  return affectedRows(result) > 0;
+}
+
+export async function deleteConversationMessages(
+  db: AppDatabase,
+  vendorId: string,
+  conversationId: string,
+): Promise<void> {
+  await db
+    .delete(messages)
+    .where(and(eq(messages.vendorId, vendorId), eq(messages.conversationId, conversationId)));
 }
