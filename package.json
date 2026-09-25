@@ -1,0 +1,13 @@
+{
+  "name": "zalo-facebook-chat",
+  "private": true,
+  "scripts": {
+    "dev:web": "pnpm --filter @zalo/web dev",
+    "dev:worker": "pnpm --filter @zalo/worker dev",
+    "dev:mobile": "pnpm --filter @zalo/mobile start",
+    "lint": "pnpm --filter @zalo/web lint",
+    "test": "pnpm --filter @zalo/web test",
+    "typecheck": "pnpm --filter @zalo/core typecheck && pnpm --filter @zalo/web typecheck && pnpm --filter @zalo/worker typecheck",
+    "build": "pnpm --filter @zalo/web build"
+  }
+}

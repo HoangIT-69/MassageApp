@@ -1,0 +1,16 @@
+CLAUDE.md
+node_modules
+*.tsbuildinfo
+.next
+dist
+coverage
+.expo
+data
+.env
+.env.local
+*.sqlite
+*.sqlite-*
+*.sqlite-journal
+zalo-credentials.json
+npm-debug.log*
+.DS_Store
