@@ -9,7 +9,8 @@ import {
   type Conversation,
 } from "../../src/api/client";
 import { useAuth } from "../../src/auth";
-import { AiToggle } from "../../src/components/AiToggle";
+import { HeaderButton } from "../../src/components/HeaderButton";
+import { SessionSheet } from "../../src/components/SessionSheet";
 import { Composer } from "../../src/components/Composer";
 import { MessageBubble } from "../../src/components/MessageBubble";
 import { ScreenHeader } from "../../src/components/ScreenHeader";
@@ -23,6 +24,7 @@ export default function ChatScreen() {
   const { token, ready, setToken } = useAuth();
   const [title, setTitle] = useState("Chat");
   const [aiEnabled, setAiEnabled] = useState(false);
+  const [sessionOpen, setSessionOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [error, setError] = useState("");
 
@@ -63,20 +65,6 @@ export default function ChatScreen() {
     tick();
   }
 
-  async function toggleAi(enabled: boolean): Promise<void> {
-    if (!token || !id) return;
-    setAiEnabled(enabled);
-    try {
-      await api(`/api/conversations/${id}`, token, {
-        method: "PATCH",
-        body: JSON.stringify({ aiEnabled: enabled }),
-      });
-    } catch (caught) {
-      setAiEnabled(!enabled);
-      setError(caught instanceof ApiError ? caught.message : copy.loadError);
-    }
-  }
-
   if (!ready) return <LoadingState />;
   if (!token) return <Redirect href="/login" />;
   if (messages === null && !error) return <LoadingState />;
@@ -94,8 +82,17 @@ export default function ChatScreen() {
     >
       <ScreenHeader
         title={title}
-        right={<AiToggle enabled={aiEnabled} onChange={(value) => void toggleAi(value)} />}
+        right={<HeaderButton label={copy.sessionButton} onPress={() => setSessionOpen(true)} />}
       />
+      {token && id ? (
+        <SessionSheet
+          visible={sessionOpen}
+          conversationId={id}
+          token={token}
+          onClose={() => setSessionOpen(false)}
+          onChanged={tick}
+        />
+      ) : null}
       {error ? (
         <View style={styles.errorWrap}>
           <ErrorText message={error} />

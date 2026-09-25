@@ -10,42 +10,45 @@ import {
 import { insertMessage, listMessages } from "../repositories/messages";
 import type { ConversationRecord, MessageRecord } from "../types";
 
-export function listVendorConversations(db: AppDatabase, vendorId: string): ConversationRecord[] {
+export async function listVendorConversations(
+  db: AppDatabase,
+  vendorId: string,
+): Promise<ConversationRecord[]> {
   return listConversations(db, vendorId);
 }
 
-export function listVendorMessages(
+export async function listVendorMessages(
   db: AppDatabase,
   vendorId: string,
   conversationId: string,
   after: number,
-): MessageRecord[] {
-  requireConversation(db, vendorId, conversationId);
+): Promise<MessageRecord[]> {
+  await requireConversation(db, vendorId, conversationId);
   return listMessages(db, vendorId, conversationId, after);
 }
 
-export function setConversationAi(
+export async function setConversationAi(
   db: AppDatabase,
   vendorId: string,
   conversationId: string,
   aiEnabled: boolean,
-): ConversationRecord {
+): Promise<ConversationRecord> {
   return updateAiEnabled(db, vendorId, conversationId, aiEnabled);
 }
 
-export function enqueueOperatorMessage(
+export async function enqueueOperatorMessage(
   db: AppDatabase,
   vendorId: string,
   conversationId: string,
   content: string,
-): MessageRecord {
+): Promise<MessageRecord> {
   const trimmed = content.trim();
   if (trimmed.length === 0 || trimmed.length > MAX_MESSAGE_LENGTH) {
     throw new AppError("Nội dung tin nhắn không hợp lệ", 400);
   }
-  requireConversation(db, vendorId, conversationId);
+  await requireConversation(db, vendorId, conversationId);
   const createdAt = Date.now();
-  const message = insertMessage(db, {
+  const message = await insertMessage(db, {
     vendorId,
     conversationId,
     direction: "out",
@@ -55,6 +58,6 @@ export function enqueueOperatorMessage(
     status: "queued",
     createdAt,
   });
-  touchConversation(db, conversationId, trimmed, createdAt);
+  await touchConversation(db, vendorId, conversationId, trimmed, createdAt);
   return message;
 }

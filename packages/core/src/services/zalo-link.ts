@@ -2,23 +2,27 @@ import type { AppDatabase } from "../db/client";
 import { getZaloLink, saveZaloLink } from "../repositories/zalo-link";
 import type { ZaloLinkRecord } from "../types";
 
-export function readZaloLink(db: AppDatabase, vendorId: string): ZaloLinkRecord {
+export async function readZaloLink(db: AppDatabase, vendorId: string): Promise<ZaloLinkRecord> {
   return getZaloLink(db, vendorId);
 }
 
-export function setAwaitingQr(db: AppDatabase, vendorId: string, qrImage: string): ZaloLinkRecord {
+export async function setAwaitingQr(
+  db: AppDatabase,
+  vendorId: string,
+  qrImage: string,
+): Promise<ZaloLinkRecord> {
   return saveZaloLink(db, vendorId, "awaiting_qr", null, qrImage);
 }
 
-export function setZaloConnected(
+export async function setZaloConnected(
   db: AppDatabase,
   vendorId: string,
   displayName: string,
-): ZaloLinkRecord {
+): Promise<ZaloLinkRecord> {
   return saveZaloLink(db, vendorId, "connected", displayName, null);
 }
 
-export function setZaloDisconnected(db: AppDatabase, vendorId: string): ZaloLinkRecord {
+export async function setZaloDisconnected(db: AppDatabase, vendorId: string): Promise<ZaloLinkRecord> {
   return saveZaloLink(db, vendorId, "disconnected", null, null);
 }
 

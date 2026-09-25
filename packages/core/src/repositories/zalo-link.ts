@@ -5,9 +5,9 @@ import type { ZaloLinkRecord, ZaloLinkStatus } from "../types";
 
 const DISCONNECTED: ZaloLinkStatus = "disconnected";
 
-export function getZaloLink(db: AppDatabase, vendorId: string): ZaloLinkRecord {
-  const row = db.select().from(zaloLinks).where(eq(zaloLinks.vendorId, vendorId)).get();
-  if (row) return row;
+export async function getZaloLink(db: AppDatabase, vendorId: string): Promise<ZaloLinkRecord> {
+  const rows = await db.select().from(zaloLinks).where(eq(zaloLinks.vendorId, vendorId)).limit(1);
+  if (rows[0]) return rows[0];
   return {
     vendorId,
     status: DISCONNECTED,
@@ -17,20 +17,17 @@ export function getZaloLink(db: AppDatabase, vendorId: string): ZaloLinkRecord {
   };
 }
 
-export function saveZaloLink(
+export async function saveZaloLink(
   db: AppDatabase,
   vendorId: string,
   status: ZaloLinkStatus,
   displayName: string | null,
   qrImage: string | null,
-): ZaloLinkRecord {
+): Promise<ZaloLinkRecord> {
   const updatedAt = Date.now();
-  db.insert(zaloLinks)
+  await db
+    .insert(zaloLinks)
     .values({ vendorId, status, displayName, qrImage, updatedAt })
-    .onConflictDoUpdate({
-      target: zaloLinks.vendorId,
-      set: { status, displayName, qrImage, updatedAt },
-    })
-    .run();
+    .onDuplicateKeyUpdate({ set: { status, displayName, qrImage, updatedAt } });
   return { vendorId, status, displayName, qrImage, updatedAt };
 }

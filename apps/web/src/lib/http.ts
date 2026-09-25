@@ -19,7 +19,7 @@ export async function withOperator(
 ): Promise<Response> {
   const token = readBearer(request);
   if (!token) return json({ error: "Chưa đăng nhập" }, 401);
-  const vendorId = findVendorByToken(getDb(), token);
+  const vendorId = await findVendorByToken(await getDb(), token);
   if (!vendorId) return json({ error: "Chưa đăng nhập" }, 401);
   try {
     return await action(vendorId);

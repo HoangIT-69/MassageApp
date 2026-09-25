@@ -15,24 +15,25 @@ export function secretsMatch(left: string, right: string): boolean {
   return timingSafeEqual(leftHash, rightHash);
 }
 
-export function createSession(db: AppDatabase, vendorId: string): { token: string } {
+export async function createSession(
+  db: AppDatabase,
+  vendorId: string,
+): Promise<{ token: string }> {
   const token = randomBytes(TOKEN_BYTES).toString("hex");
-  db.insert(operatorSessions)
-    .values({
-      id: randomBytes(16).toString("hex"),
-      vendorId,
-      tokenHash: hashSecret(token),
-      createdAt: Date.now(),
-    })
-    .run();
+  await db.insert(operatorSessions).values({
+    id: randomBytes(16).toString("hex"),
+    vendorId,
+    tokenHash: hashSecret(token),
+    createdAt: Date.now(),
+  });
   return { token };
 }
 
-export function findVendorByToken(db: AppDatabase, token: string): string | null {
-  const row = db
+export async function findVendorByToken(db: AppDatabase, token: string): Promise<string | null> {
+  const rows = await db
     .select()
     .from(operatorSessions)
     .where(eq(operatorSessions.tokenHash, hashSecret(token)))
-    .get();
-  return row?.vendorId ?? null;
+    .limit(1);
+  return rows[0]?.vendorId ?? null;
 }

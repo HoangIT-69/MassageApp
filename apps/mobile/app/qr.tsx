@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
-import { Redirect } from "expo-router";
+import { Redirect, useRouter } from "expo-router";
 import { ApiError, api, type ZaloStatus } from "../src/api/client";
 import { useAuth } from "../src/auth";
+import { HeaderButton } from "../src/components/HeaderButton";
 import { ScreenHeader } from "../src/components/ScreenHeader";
 import { ErrorText, LoadingState } from "../src/components/StatusText";
 import { copy } from "../src/copy";
@@ -11,6 +12,7 @@ import { usePoll } from "../src/use-poll";
 
 export default function QrScreen() {
   const { token, ready, setToken } = useAuth();
+  const router = useRouter();
   const [status, setStatus] = useState<ZaloStatus | null>(null);
   const [image, setImage] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -44,7 +46,10 @@ export default function QrScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader title={copy.qrTitle} />
+      <ScreenHeader
+        title={copy.qrTitle}
+        right={<HeaderButton label={copy.manage} onPress={() => router.push("/manage")} />}
+      />
       <View style={styles.body}>
         <Text style={styles.hint}>{copy.qrHint}</Text>
         {image ? (

@@ -4,9 +4,13 @@ import { bumpRelink } from "../repositories/zalo-control";
 import { clearCredentials } from "./credentials";
 import { setZaloDisconnected } from "./zalo-link";
 
-export function requestZaloLogout(db: AppDatabase, vendorId: string, credentialsPath: string): void {
+export async function requestZaloLogout(
+  db: AppDatabase,
+  vendorId: string,
+  credentialsPath: string,
+): Promise<void> {
   clearCredentials(credentialsPath);
-  deleteVendorChats(db, vendorId);
-  setZaloDisconnected(db, vendorId);
-  bumpRelink(db, vendorId);
+  await deleteVendorChats(db, vendorId);
+  await setZaloDisconnected(db, vendorId);
+  await bumpRelink(db, vendorId);
 }

@@ -1,12 +1,24 @@
+import { useEffect, useState } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
 import { theme } from "../theme";
 
 const AVATAR_SIZE = 44;
 
 export function Avatar({ name, uri }: { name: string; uri: string | null }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    setFailed(false);
+  }, [uri]);
   const label = name.trim().charAt(0).toUpperCase() || "?";
-  if (uri) {
-    return <Image source={{ uri }} accessibilityLabel={name} style={styles.image} />;
+  if (uri && !failed) {
+    return (
+      <Image
+        source={{ uri }}
+        accessibilityLabel={name}
+        style={styles.image}
+        onError={() => setFailed(true)}
+      />
+    );
   }
   return (
     <View style={styles.fallback} accessibilityLabel={name}>

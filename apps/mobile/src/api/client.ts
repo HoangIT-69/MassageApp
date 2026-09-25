@@ -26,6 +26,7 @@ export type ChatMessage = {
 export type ZaloStatus = {
   status: "disconnected" | "awaiting_qr" | "connected";
   displayName: string | null;
+  aiAll: boolean;
 };
 
 export class ApiError extends Error {
@@ -56,4 +57,51 @@ export async function api<T>(path: string, token: string | null, init?: RequestI
     throw new ApiError(payload.error ?? "Lỗi máy chủ", response.status);
   }
   return payload;
+}
+
+export async function apiUpload<T>(path: string, token: string, file: { uri: string; name: string; type: string }): Promise<T> {
+  const body = new FormData();
+  // React Native FormData nhận mô tả file {uri,name,type}, không phải Blob trình duyệt.
+  body.append("file", file as unknown as Blob);
+  const headers = new Headers();
+  headers.set("Accept", "application/json");
+  headers.set("Authorization", `Bearer ${token}`);
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, { method: "POST", headers, body });
+  } catch {
+    throw new ApiError("Không kết nối được máy chủ", 0);
+  }
+  const payload = (await response.json().catch(() => ({}))) as T & ErrorBody;
+  if (!response.ok) throw new ApiError(payload.error ?? "Lỗi máy chủ", response.status);
+  return payload;
+}
+
+export async function apiImage(path: string, token: string): Promise<string | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      headers: { Accept: "image/*", Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    throw new ApiError("Không kết nối được máy chủ", 0);
+  }
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => ({}))) as ErrorBody;
+    throw new ApiError(payload.error ?? "Lỗi máy chủ", response.status);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  const type = response.headers.get("Content-Type") ?? "image/jpeg";
+  return `data:${type};base64,${bytesToBase64(bytes)}`;
+}
+
+const BASE64_CHUNK = 8192;
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  for (let index = 0; index < bytes.length; index += BASE64_CHUNK) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + BASE64_CHUNK));
+  }
+  return btoa(binary);
 }
