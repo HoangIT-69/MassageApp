@@ -13,6 +13,7 @@ export function toInbound(message: Message): InboundInput {
   const timestamp = Number(message.data.ts);
   const zaloMsgId = message.data.msgId || message.data.realMsgId;
   return {
+    channel: "zalo",
     threadId: message.threadId,
     threadType: message.type === ThreadType.Group ? "group" : "user",
     title: titleFor(message),
@@ -21,7 +22,7 @@ export function toInbound(message: Message): InboundInput {
     content: isText ? raw : ATTACHMENT_PLACEHOLDER,
     isText,
     isSelf: message.isSelf,
-    zaloMsgId: zaloMsgId ? String(zaloMsgId) : null,
+    externalMsgId: zaloMsgId ? String(zaloMsgId) : null,
     timestamp: Number.isFinite(timestamp) && timestamp > 0 ? timestamp : Date.now(),
   };
 }

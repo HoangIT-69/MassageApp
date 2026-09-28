@@ -21,6 +21,7 @@ import { getDb } from "@/lib/db";
 export function conversationDto(row: ConversationRecord) {
   return {
     id: row.id,
+    channel: row.channel,
     title: row.title,
     avatarUrl: row.avatarUrl,
     lastMessage: row.lastMessage,

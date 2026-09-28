@@ -4,13 +4,15 @@ export type ConversationRecord = typeof conversations.$inferSelect;
 export type MessageRecord = typeof messages.$inferSelect;
 export type ZaloLinkRecord = typeof zaloLinks.$inferSelect;
 
+export type ChannelName = "zalo" | "facebook";
 export type ThreadTypeName = "user" | "group";
 export type Direction = "in" | "out";
-export type MessageSource = "zalo" | "operator" | "ai";
+export type MessageSource = "customer" | "operator" | "ai";
 export type MessageStatus = "received" | "queued" | "sent" | "failed";
 export type ZaloLinkStatus = "disconnected" | "awaiting_qr" | "connected";
 
 export type InboundInput = {
+  channel: ChannelName;
   threadId: string;
   threadType: ThreadTypeName;
   title: string;
@@ -19,7 +21,7 @@ export type InboundInput = {
   content: string;
   isText: boolean;
   isSelf: boolean;
-  zaloMsgId: string | null;
+  externalMsgId: string | null;
   timestamp: number;
 };
 

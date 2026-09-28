@@ -28,6 +28,7 @@ export async function openDatabase(databaseUrl: string): Promise<AppDatabase> {
     }
     await ensureColumn(connection, "shop_profiles", "ai_all", "TINYINT(1) NOT NULL DEFAULT 0");
     await ensureColumn(connection, "conversations", "stage", "VARCHAR(32) NOT NULL DEFAULT 'chao_hoi'");
+    await upgradeToChannels(connection);
   } finally {
     connection.release();
   }
@@ -36,18 +37,90 @@ export async function openDatabase(databaseUrl: string): Promise<AppDatabase> {
   return db;
 }
 
+async function hasColumn(
+  connection: mysql.PoolConnection,
+  table: string,
+  column: string,
+): Promise<boolean> {
+  const [rows] = await connection.query<RowDataPacket[]>(
+    "SELECT COUNT(*) AS total FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+    [table, column],
+  );
+  return Number(rows[0]?.total ?? 0) > 0;
+}
+
+async function hasIndex(
+  connection: mysql.PoolConnection,
+  table: string,
+  indexName: string,
+): Promise<boolean> {
+  const [rows] = await connection.query<RowDataPacket[]>(
+    "SELECT COUNT(*) AS total FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?",
+    [table, indexName],
+  );
+  return Number(rows[0]?.total ?? 0) > 0;
+}
+
 async function ensureColumn(
   connection: mysql.PoolConnection,
   table: string,
   column: string,
   definition: string,
 ): Promise<void> {
-  const [rows] = await connection.query<RowDataPacket[]>(
-    "SELECT COUNT(*) AS total FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
-    [table, column],
-  );
-  if (Number(rows[0]?.total ?? 0) > 0) return;
+  if (await hasColumn(connection, table, column)) return;
   await connection.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+}
+
+async function ensureColumnRenamed(
+  connection: mysql.PoolConnection,
+  table: string,
+  from: string,
+  to: string,
+  definition: string,
+): Promise<void> {
+  if (await hasColumn(connection, table, to)) return;
+  if (!(await hasColumn(connection, table, from))) return;
+  await connection.query(
+    `ALTER TABLE \`${table}\` CHANGE \`${from}\` \`${to}\` ${definition}`,
+  );
+}
+
+async function ensureUniqueKey(
+  connection: mysql.PoolConnection,
+  table: string,
+  previousName: string,
+  name: string,
+  columns: string[],
+): Promise<void> {
+  if (await hasIndex(connection, table, name)) return;
+  if (await hasIndex(connection, table, previousName)) {
+    await connection.query(`ALTER TABLE \`${table}\` DROP INDEX \`${previousName}\``);
+  }
+  const list = columns.map((column) => `\`${column}\``).join(", ");
+  await connection.query(`ALTER TABLE \`${table}\` ADD UNIQUE KEY \`${name}\` (${list})`);
+}
+
+// Nâng một database chỉ có Zalo lên lược đồ đa channel. Không có versioned migration
+// nên mỗi bước phải tự nhận biết đã chạy chưa; trên database mới tất cả là no-op.
+async function upgradeToChannels(connection: mysql.PoolConnection): Promise<void> {
+  await ensureColumn(connection, "conversations", "channel", "VARCHAR(16) NOT NULL DEFAULT 'zalo'");
+  await ensureColumn(connection, "messages", "channel", "VARCHAR(16) NOT NULL DEFAULT 'zalo'");
+  await ensureColumnRenamed(connection, "messages", "zalo_msg_id", "external_msg_id", "VARCHAR(128) NULL");
+  await ensureUniqueKey(
+    connection,
+    "conversations",
+    "conversations_vendor_thread",
+    "conversations_vendor_channel_thread",
+    ["vendor_id", "channel", "thread_id"],
+  );
+  await ensureUniqueKey(
+    connection,
+    "messages",
+    "messages_vendor_zalo_msg",
+    "messages_vendor_channel_external",
+    ["vendor_id", "channel", "external_msg_id"],
+  );
+  await connection.query("UPDATE messages SET source = 'customer' WHERE source = 'zalo'");
 }
 
 export async function closeDatabase(db: AppDatabase): Promise<void> {

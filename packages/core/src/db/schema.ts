@@ -43,6 +43,7 @@ export const conversations = mysqlTable(
   {
     id: id("id").primaryKey(),
     vendorId: vendor(),
+    channel: varchar("channel", { length: 16 }).notNull().default("zalo"),
     threadId: varchar("thread_id", { length: 128 }).notNull(),
     threadType: varchar("thread_type", { length: 16 }).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
@@ -52,7 +53,13 @@ export const conversations = mysqlTable(
     aiEnabled: boolean("ai_enabled").notNull().default(false),
     stage: varchar("stage", { length: 32 }).notNull().default("chao_hoi"),
   },
-  (table) => [uniqueIndex("conversations_vendor_thread").on(table.vendorId, table.threadId)],
+  (table) => [
+    uniqueIndex("conversations_vendor_channel_thread").on(
+      table.vendorId,
+      table.channel,
+      table.threadId,
+    ),
+  ],
 );
 
 export const messages = mysqlTable(
@@ -60,17 +67,22 @@ export const messages = mysqlTable(
   {
     id: id("id").primaryKey(),
     vendorId: vendor(),
+    channel: varchar("channel", { length: 16 }).notNull().default("zalo"),
     conversationId: varchar("conversation_id", { length: 64 }).notNull(),
     direction: varchar("direction", { length: 8 }).notNull(),
     source: varchar("source", { length: 16 }).notNull(),
     content: text("content").notNull(),
     attachmentPath: varchar("attachment_path", { length: 255 }),
-    zaloMsgId: varchar("zalo_msg_id", { length: 128 }),
+    externalMsgId: varchar("external_msg_id", { length: 128 }),
     status: varchar("status", { length: 16 }).notNull(),
     createdAt: stamp("created_at"),
   },
   (table) => [
-    uniqueIndex("messages_vendor_zalo_msg").on(table.vendorId, table.zaloMsgId),
+    uniqueIndex("messages_vendor_channel_external").on(
+      table.vendorId,
+      table.channel,
+      table.externalMsgId,
+    ),
     index("messages_conversation_time").on(table.vendorId, table.conversationId, table.createdAt),
   ],
 );

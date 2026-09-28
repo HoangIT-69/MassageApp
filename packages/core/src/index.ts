@@ -37,12 +37,30 @@ export {
   listVendorMessages,
   setConversationAi,
 } from "./services/conversations";
-export { buildChatMessages, ingestInbound } from "./services/inbound";
+export {
+  buildChatMessages,
+  ingestInbound,
+  replyToConversation,
+  storeInboundMessage,
+  type StoredInbound,
+} from "./services/inbound";
 export { createDeepInfraClient } from "./services/deepinfra";
+export {
+  parseFacebookWebhook,
+  sendFacebookText,
+  verifyFacebookSignature,
+} from "./services/facebook";
 export { clearCredentials, readCredentials, writeCredentials } from "./services/credentials";
 export { requestZaloLogout } from "./services/logout";
 export { readRelink } from "./repositories/zalo-control";
-export { completeOutboxSend, takeOutbox } from "./services/outbox";
+export {
+  completeOutboxSend,
+  routeOutbox,
+  takeOutbox,
+  type ChannelSender,
+  type FlushOutcome,
+  type OutboxItem,
+} from "./services/outbox";
 export { ensureShopSeed } from "./services/seed";
 export { composeSystemPrompt } from "./services/prompt";
 export { parseMemoryExtract, parseModelReply } from "./services/signals";
@@ -72,6 +90,7 @@ export { readShopAiAll, setShopAiAll } from "./repositories/catalog";
 export { clearConversationContext, removeConversation } from "./services/session-context";
 export type {
   AiClient,
+  ChannelName,
   ChatTurn,
   ConversationRecord,
   InboundInput,

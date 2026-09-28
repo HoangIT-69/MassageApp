@@ -4,8 +4,11 @@ export const POLL_INTERVAL_MS = 2000;
 
 export const AI_PENDING_MS = 30_000;
 
+export type ChannelName = "zalo" | "facebook";
+
 export type Conversation = {
   id: string;
+  channel: ChannelName;
   title: string;
   avatarUrl: string | null;
   lastMessage: string | null;
@@ -17,7 +20,7 @@ export type Conversation = {
 export type ChatMessage = {
   id: string;
   direction: "in" | "out";
-  source: "zalo" | "operator" | "ai";
+  source: "customer" | "operator" | "ai";
   content: string;
   status: "received" | "queued" | "sent" | "failed";
   createdAt: number;

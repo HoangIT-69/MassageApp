@@ -10,7 +10,7 @@ export async function requestZaloLogout(
   credentialsPath: string,
 ): Promise<void> {
   clearCredentials(credentialsPath);
-  await deleteVendorChats(db, vendorId);
+  await deleteVendorChats(db, vendorId, "zalo");
   await setZaloDisconnected(db, vendorId);
   await bumpRelink(db, vendorId);
 }

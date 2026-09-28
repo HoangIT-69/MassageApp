@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import type { AppDatabase } from "../db/client";
 import {
   bookingAnchors,
@@ -11,7 +11,7 @@ import {
   messages,
 } from "../db/schema";
 import { AppError } from "../errors";
-import type { ConversationRecord, InboundInput } from "../types";
+import type { ChannelName, ConversationRecord, InboundInput } from "../types";
 
 export async function listConversations(
   db: AppDatabase,
@@ -50,12 +50,19 @@ export async function requireConversation(
 export async function findConversationByThread(
   db: AppDatabase,
   vendorId: string,
+  channel: ChannelName,
   threadId: string,
 ): Promise<ConversationRecord | null> {
   const rows = await db
     .select()
     .from(conversations)
-    .where(and(eq(conversations.vendorId, vendorId), eq(conversations.threadId, threadId)))
+    .where(
+      and(
+        eq(conversations.vendorId, vendorId),
+        eq(conversations.channel, channel),
+        eq(conversations.threadId, threadId),
+      ),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -70,6 +77,7 @@ export async function insertConversation(
   const created: ConversationRecord = {
     id: randomUUID(),
     vendorId,
+    channel: input.channel,
     threadId: input.threadId,
     threadType: input.threadType,
     title,
@@ -136,12 +144,41 @@ export async function updateAiEnabled(
   return { ...current, aiEnabled };
 }
 
-export async function deleteVendorChats(db: AppDatabase, vendorId: string): Promise<void> {
-  await db.delete(messages).where(eq(messages.vendorId, vendorId));
-  await db.delete(customerFacts).where(eq(customerFacts.vendorId, vendorId));
-  await db.delete(conversationSummaries).where(eq(conversationSummaries.vendorId, vendorId));
-  await db.delete(bookingAnchors).where(eq(bookingAnchors.vendorId, vendorId));
-  await db.delete(customerProfiles).where(eq(customerProfiles.vendorId, vendorId));
-  await db.delete(bookings).where(eq(bookings.vendorId, vendorId));
-  await db.delete(conversations).where(eq(conversations.vendorId, vendorId));
+export async function deleteVendorChats(
+  db: AppDatabase,
+  vendorId: string,
+  channel: ChannelName,
+): Promise<void> {
+  const owned = await db
+    .select({ id: conversations.id })
+    .from(conversations)
+    .where(and(eq(conversations.vendorId, vendorId), eq(conversations.channel, channel)));
+  const ids = owned.map((row) => row.id);
+  if (ids.length === 0) return;
+  await db
+    .delete(messages)
+    .where(and(eq(messages.vendorId, vendorId), inArray(messages.conversationId, ids)));
+  await db
+    .delete(customerFacts)
+    .where(and(eq(customerFacts.vendorId, vendorId), inArray(customerFacts.conversationId, ids)));
+  await db
+    .delete(conversationSummaries)
+    .where(
+      and(
+        eq(conversationSummaries.vendorId, vendorId),
+        inArray(conversationSummaries.conversationId, ids),
+      ),
+    );
+  await db
+    .delete(bookingAnchors)
+    .where(and(eq(bookingAnchors.vendorId, vendorId), inArray(bookingAnchors.conversationId, ids)));
+  await db
+    .delete(customerProfiles)
+    .where(
+      and(eq(customerProfiles.vendorId, vendorId), inArray(customerProfiles.conversationId, ids)),
+    );
+  await db
+    .delete(bookings)
+    .where(and(eq(bookings.vendorId, vendorId), inArray(bookings.conversationId, ids)));
+  await db.delete(conversations).where(inArray(conversations.id, ids));
 }

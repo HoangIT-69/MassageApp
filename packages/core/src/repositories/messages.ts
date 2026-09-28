@@ -4,29 +4,43 @@ import { HISTORY_LIMIT, MESSAGE_PAGE_SIZE, SELF_ECHO_WINDOW_MS } from "../consta
 import type { AppDatabase } from "../db/client";
 import { affectedRows } from "../db/sql";
 import { messages } from "../db/schema";
-import type { Direction, MessageRecord, MessageSource, MessageStatus } from "../types";
+import type {
+  ChannelName,
+  Direction,
+  MessageRecord,
+  MessageSource,
+  MessageStatus,
+} from "../types";
 
 export type NewMessage = {
   vendorId: string;
+  channel: ChannelName;
   conversationId: string;
   direction: Direction;
   source: MessageSource;
   content: string;
   attachmentPath?: string | null;
-  zaloMsgId: string | null;
+  externalMsgId: string | null;
   status: MessageStatus;
   createdAt: number;
 };
 
-export async function findMessageByZaloId(
+export async function findMessageByExternalId(
   db: AppDatabase,
   vendorId: string,
-  zaloMsgId: string,
+  channel: ChannelName,
+  externalMsgId: string,
 ): Promise<MessageRecord | null> {
   const rows = await db
     .select()
     .from(messages)
-    .where(and(eq(messages.vendorId, vendorId), eq(messages.zaloMsgId, zaloMsgId)))
+    .where(
+      and(
+        eq(messages.vendorId, vendorId),
+        eq(messages.channel, channel),
+        eq(messages.externalMsgId, externalMsgId),
+      ),
+    )
     .limit(1);
   return rows[0] ?? null;
 }
@@ -117,7 +131,7 @@ export async function findSelfEcho(
         eq(messages.conversationId, conversationId),
         eq(messages.direction, "out"),
         eq(messages.content, content),
-        isNull(messages.zaloMsgId),
+        isNull(messages.externalMsgId),
         gt(messages.createdAt, timestamp - SELF_ECHO_WINDOW_MS),
       ),
     )
@@ -126,16 +140,16 @@ export async function findSelfEcho(
   return rows[0] ?? null;
 }
 
-export async function attachZaloMsgId(
+export async function attachExternalMsgId(
   db: AppDatabase,
   vendorId: string,
   messageId: string,
-  zaloMsgId: string,
+  externalMsgId: string,
   status: MessageStatus,
 ): Promise<void> {
   await db
     .update(messages)
-    .set({ zaloMsgId, status })
+    .set({ externalMsgId, status })
     .where(and(eq(messages.vendorId, vendorId), eq(messages.id, messageId)));
 }
 

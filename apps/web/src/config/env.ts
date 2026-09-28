@@ -26,6 +26,13 @@ export function loadRootEnv(): void {
   loaded = true;
 }
 
+export type FacebookConfig = {
+  pageId: string;
+  pageAccessToken: string;
+  appSecret: string;
+  verifyToken: string;
+};
+
 export type WebEnv = {
   appPassword: string;
   databaseUrl: string;
@@ -34,7 +41,19 @@ export type WebEnv = {
   vendorId: string;
   deepinfraApiKey: string;
   objectStore: ObjectStoreConfig;
+  facebook: FacebookConfig | null;
 };
+
+// Kênh Facebook là tuỳ chọn: thiếu bất kỳ biến nào thì coi như chưa bật, app vẫn chạy Zalo.
+// Không có chế độ "bỏ qua verify chữ ký" — thiếu app secret là chưa bật, không phải bật mà không kiểm.
+function facebookFromEnv(): FacebookConfig | null {
+  const pageId = process.env.FB_PAGE_ID?.trim() ?? "";
+  const pageAccessToken = process.env.FB_PAGE_ACCESS_TOKEN?.trim() ?? "";
+  const appSecret = process.env.FB_APP_SECRET?.trim() ?? "";
+  const verifyToken = process.env.FB_VERIFY_TOKEN?.trim() ?? "";
+  if (!pageId || !pageAccessToken || !appSecret || !verifyToken) return null;
+  return { pageId, pageAccessToken, appSecret, verifyToken };
+}
 
 function objectStoreFromEnv(): ObjectStoreConfig {
   const endpoint = required("MINIO_ENDPOINT");
@@ -71,5 +90,6 @@ export function getEnv(): WebEnv {
     vendorId: process.env.VENDOR_ID?.trim() || "local",
     deepinfraApiKey: process.env.DEEPINFRA_API_KEY?.trim() ?? "",
     objectStore: objectStoreFromEnv(),
+    facebook: facebookFromEnv(),
   };
 }

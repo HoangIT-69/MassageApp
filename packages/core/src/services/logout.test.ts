@@ -7,7 +7,7 @@ import { openTestDatabase } from "../db/test-support";
 import { readRelink } from "../repositories/zalo-control";
 import { readCredentials, writeCredentials } from "./credentials";
 import { ingestInbound } from "./inbound";
-import { listVendorConversations } from "./conversations";
+import { listVendorConversations, listVendorMessages } from "./conversations";
 import { requestZaloLogout } from "./logout";
 import { readZaloLink, setZaloConnected } from "./zalo-link";
 import type { AiClient, InboundInput } from "../types";
@@ -20,11 +20,12 @@ function inbound(vendorThread: string): InboundInput {
     threadType: "user",
     title: "An",
     avatarUrl: null,
+    channel: "zalo",
     overwriteTitle: true,
     content: "xin chao",
     isText: true,
     isSelf: false,
-    zaloMsgId: vendorThread,
+    externalMsgId: vendorThread,
     timestamp: 1_700_000_000_000,
   };
 }
@@ -65,6 +66,28 @@ describe("zalo logout", () => {
 
     await requestZaloLogout(handle.db, LOCAL_VENDOR_ID, credentialsPath);
     expect(await readRelink(handle.db, LOCAL_VENDOR_ID)).toBe(2);
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("keeps facebook conversations and their messages after a zalo logout", async () => {
+    const handle = await openTestDatabase();
+    opened.push(handle);
+    const dir = mkdtempSync(path.join(tmpdir(), "zalo-creds-"));
+    const credentialsPath = path.join(dir, "zalo-credentials.json");
+    await ingestInbound(handle.db, LOCAL_VENDOR_ID, inbound("zalo-thread"), silentAi);
+    await ingestInbound(
+      handle.db,
+      LOCAL_VENDOR_ID,
+      { ...inbound("psid-1"), channel: "facebook" },
+      silentAi,
+    );
+
+    await requestZaloLogout(handle.db, LOCAL_VENDOR_ID, credentialsPath);
+
+    const remaining = await listVendorConversations(handle.db, LOCAL_VENDOR_ID);
+    expect(remaining.map((row) => row.channel)).toEqual(["facebook"]);
+    const messages = await listVendorMessages(handle.db, LOCAL_VENDOR_ID, remaining[0]?.id ?? "", 0);
+    expect(messages).toHaveLength(1);
     rmSync(dir, { recursive: true, force: true });
   });
 });

@@ -5,6 +5,7 @@ import { getStaff } from "../repositories/catalog";
 import { requireConversation, touchConversation } from "../repositories/conversations";
 import { insertMessage } from "../repositories/messages";
 import type { BookingStatus } from "../shop-types";
+import type { ChannelName } from "../types";
 import { syncConversationStage } from "./session-stage";
 
 function confirmationText(booking: {
@@ -20,16 +21,17 @@ function confirmationText(booking: {
 
 export async function confirmBooking(db: AppDatabase, vendorId: string, bookingId: string) {
   const booking = await setBookingStatus(db, vendorId, bookingId, "da_chot", ["cho_xac_nhan"]);
-  await requireConversation(db, vendorId, booking.conversationId);
+  const conversation = await requireConversation(db, vendorId, booking.conversationId);
   const content = confirmationText(booking);
   const createdAt = Date.now();
   await insertMessage(db, {
     vendorId,
+    channel: conversation.channel as ChannelName,
     conversationId: booking.conversationId,
     direction: "out",
     source: "operator",
     content,
-    zaloMsgId: null,
+    externalMsgId: null,
     status: "queued",
     createdAt,
   });

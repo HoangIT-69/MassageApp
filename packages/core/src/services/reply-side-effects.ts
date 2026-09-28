@@ -12,7 +12,7 @@ import {
   saveAnchor,
 } from "../repositories/memory";
 import { saveDraftBooking } from "../repositories/bookings";
-import type { AiClient, MessageRecord } from "../types";
+import type { AiClient, ChannelName, MessageRecord } from "../types";
 import { keepCustomerName } from "./customer-name";
 import { memoryExtractPrompt } from "./memory-prompt";
 import { syncConversationStage } from "./session-stage";
@@ -21,6 +21,7 @@ import { anchorFromDraft, bookingIsReady, parseMemoryExtract, type ParsedReply }
 export async function queueVisibleReply(
   db: AppDatabase,
   vendorId: string,
+  channel: ChannelName,
   conversationId: string,
   parsed: ParsedReply,
   createdAt: number,
@@ -30,11 +31,12 @@ export async function queueVisibleReply(
   if (parsed.text) {
     await insertMessage(db, {
       vendorId,
+      channel,
       conversationId,
       direction: "out",
       source: "ai",
       content: parsed.text,
-      zaloMsgId: null,
+      externalMsgId: null,
       status: "queued",
       createdAt,
     });
@@ -51,12 +53,13 @@ export async function queueVisibleReply(
     offset += 1;
     await insertMessage(db, {
       vendorId,
+      channel,
       conversationId,
       direction: "out",
       source: "ai",
       content: `Ảnh ${person.name}`,
       attachmentPath: person.photoPath,
-      zaloMsgId: null,
+      externalMsgId: null,
       status: "queued",
       createdAt: at,
     });

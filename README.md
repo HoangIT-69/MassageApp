@@ -45,6 +45,10 @@ copy .env.example .env.local
 | `MINIO_SECRET_KEY` | Bí mật bucket ảnh |
 | `MINIO_BUCKET` | Tên bucket, dev `zalo-photos` |
 | `MINIO_USE_SSL` | `false` khi MinIO chạy local |
+| `FB_PAGE_ID` | ID fanpage nhận tin (tuỳ chọn, thiếu một biến `FB_*` là kênh Facebook tắt) |
+| `FB_PAGE_ACCESS_TOKEN` | Page access token, worker dùng để gửi reply |
+| `FB_APP_SECRET` | App secret, web dùng để kiểm chữ ký `X-Hub-Signature-256` |
+| `FB_VERIFY_TOKEN` | Chuỗi tự đặt, khớp với ô Verify Token trong Meta App Dashboard |
 
 Không commit `.env.local`, `data/`, hay file credentials.
 

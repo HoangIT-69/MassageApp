@@ -36,5 +36,14 @@ export const DEEPINFRA_MODEL = "deepseek-ai/DeepSeek-V4.1-Flash";
 
 export const DEEPINFRA_TIMEOUT_MS = 30_000;
 
+// Đổi khi Meta ngừng hỗ trợ bản này — kiểm tra ở App Dashboard, mỗi bản sống khoảng 2 năm.
+export const FACEBOOK_GRAPH_URL = "https://graph.facebook.com/v25.0";
+
+export const FACEBOOK_SEND_TIMEOUT_MS = 10_000;
+
+export const FACEBOOK_GUEST_NAME_PREFIX = "Khách ";
+
+export const FACEBOOK_PSID_TAIL = 6;
+
 export const CHAT_SYSTEM_PROMPT =
-  "Bạn là trợ lý trả lời tin nhắn Zalo. Trả lời ngắn bằng tiếng Việt, giọng chat thân thiện. Không giải thích dài dòng và không nói rằng bạn là mô hình ngôn ngữ.";
+  "Bạn là trợ lý trả lời tin nhắn khách hàng. Trả lời ngắn bằng tiếng Việt, giọng chat thân thiện. Không giải thích dài dòng và không nói rằng bạn là mô hình ngôn ngữ.";

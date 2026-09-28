@@ -8,7 +8,7 @@ import {
   updateAiEnabled,
 } from "../repositories/conversations";
 import { insertMessage, listMessages } from "../repositories/messages";
-import type { ConversationRecord, MessageRecord } from "../types";
+import type { ChannelName, ConversationRecord, MessageRecord } from "../types";
 
 export async function listVendorConversations(
   db: AppDatabase,
@@ -46,15 +46,16 @@ export async function enqueueOperatorMessage(
   if (trimmed.length === 0 || trimmed.length > MAX_MESSAGE_LENGTH) {
     throw new AppError("Nội dung tin nhắn không hợp lệ", 400);
   }
-  await requireConversation(db, vendorId, conversationId);
+  const conversation = await requireConversation(db, vendorId, conversationId);
   const createdAt = Date.now();
   const message = await insertMessage(db, {
     vendorId,
+    channel: conversation.channel as ChannelName,
     conversationId,
     direction: "out",
     source: "operator",
     content: trimmed,
-    zaloMsgId: null,
+    externalMsgId: null,
     status: "queued",
     createdAt,
   });

@@ -32,7 +32,7 @@ export async function enrichInbound(
   vendorId: string,
   input: InboundInput,
 ): Promise<InboundInput> {
-  const existing = await findConversationByThread(db, vendorId, input.threadId);
+  const existing = await findConversationByThread(db, vendorId, input.channel, input.threadId);
   const link = await readZaloLink(db, vendorId);
   if (!shouldRefreshPeer(input.threadType, existing, link.displayName ?? "")) return input;
   const profile = await readPeer(api, input.threadId).catch(() => null);
