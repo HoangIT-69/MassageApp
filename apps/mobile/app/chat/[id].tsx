@@ -26,6 +26,7 @@ export default function ChatScreen() {
   const [aiEnabled, setAiEnabled] = useState(false);
   const [sessionOpen, setSessionOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
+  const [checkedAt, setCheckedAt] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const tick = useCallback(() => {
@@ -43,12 +44,14 @@ export default function ChatScreen() {
           token,
         );
         setMessages(payload.messages);
+        setCheckedAt(Date.now());
         setError("");
       } catch (caught) {
         if (caught instanceof ApiError && caught.status === 401) {
           await setToken(null);
           return;
         }
+        setCheckedAt(Date.now());
         setError(caught instanceof ApiError ? caught.message : copy.loadError);
       }
     })();
@@ -71,9 +74,10 @@ export default function ChatScreen() {
 
   const latest = messages?.[messages.length - 1];
   const waiting =
+    checkedAt !== null &&
     Boolean(aiEnabled) &&
     latest?.direction === "in" &&
-    Date.now() - latest.createdAt < AI_PENDING_MS;
+    checkedAt - latest.createdAt < AI_PENDING_MS;
 
   return (
     <KeyboardAvoidingView

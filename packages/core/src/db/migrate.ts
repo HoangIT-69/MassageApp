@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS zalo_link (
 CREATE TABLE IF NOT EXISTS conversations (
   id VARCHAR(64) PRIMARY KEY,
   vendor_id VARCHAR(64) NOT NULL,
+  channel VARCHAR(16) NOT NULL DEFAULT 'zalo',
   thread_id VARCHAR(128) NOT NULL,
   thread_type VARCHAR(16) NOT NULL,
   title VARCHAR(255) NOT NULL,
@@ -31,21 +32,22 @@ CREATE TABLE IF NOT EXISTS conversations (
   last_message_at BIGINT NULL,
   ai_enabled TINYINT(1) NOT NULL DEFAULT 0,
   stage VARCHAR(32) NOT NULL DEFAULT 'chao_hoi',
-  UNIQUE KEY conversations_vendor_thread (vendor_id, thread_id)
+  UNIQUE KEY conversations_vendor_channel_thread (vendor_id, channel, thread_id)
 );
 
 CREATE TABLE IF NOT EXISTS messages (
   id VARCHAR(64) PRIMARY KEY,
   vendor_id VARCHAR(64) NOT NULL,
+  channel VARCHAR(16) NOT NULL DEFAULT 'zalo',
   conversation_id VARCHAR(64) NOT NULL,
   direction VARCHAR(8) NOT NULL,
   source VARCHAR(16) NOT NULL,
   content TEXT NOT NULL,
   attachment_path VARCHAR(255) NULL,
-  zalo_msg_id VARCHAR(128) NULL,
+  external_msg_id VARCHAR(128) NULL,
   status VARCHAR(16) NOT NULL,
   created_at BIGINT NOT NULL,
-  UNIQUE KEY messages_vendor_zalo_msg (vendor_id, zalo_msg_id),
+  UNIQUE KEY messages_vendor_channel_external (vendor_id, channel, external_msg_id),
   INDEX messages_conversation_time (vendor_id, conversation_id, created_at)
 );
 

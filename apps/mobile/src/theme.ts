@@ -1,5 +1,6 @@
 export const theme = {
   zaloBlue: "#0068FF",
+  facebookBlue: "#1877F2",
   headerText: "#FFFFFF",
   listBg: "#FFFFFF",
   chatBg: "#E8EEF5",
@@ -24,4 +25,5 @@ export const radius = {
   bubble: 16,
   input: 20,
   avatar: 22,
+  badge: 8,
 } as const;

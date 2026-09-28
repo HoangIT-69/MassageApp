@@ -26,11 +26,12 @@ function inbound(overrides: Partial<InboundInput> = {}): InboundInput {
     threadType: "user",
     title: "Lan",
     avatarUrl: null,
+    channel: "zalo",
     overwriteTitle: true,
     content: "xin chao",
     isText: true,
     isSelf: false,
-    zaloMsgId: "m-1",
+    externalMsgId: "m-1",
     timestamp: 1_700_000_000_000,
     ...overrides,
   };
@@ -63,7 +64,7 @@ describe("chat list, photos, and session context", () => {
         overwriteTitle: false,
         isSelf: true,
         content: "da nhan",
-        zaloMsgId: "m-2",
+        externalMsgId: "m-2",
       }),
       silentAi,
     );
@@ -102,7 +103,7 @@ describe("chat list, photos, and session context", () => {
   it("clears messages and facts for one session without touching another vendor", async () => {
     const db = await open();
     await ingestInbound(db, LOCAL_VENDOR_ID, inbound(), silentAi);
-    await ingestInbound(db, OTHER_VENDOR, inbound({ threadId: "thread-2", zaloMsgId: "m-other" }), silentAi);
+    await ingestInbound(db, OTHER_VENDOR, inbound({ threadId: "thread-2", externalMsgId: "m-other" }), silentAi);
     const local = (await listVendorConversations(db, LOCAL_VENDOR_ID))[0];
     const other = (await listVendorConversations(db, OTHER_VENDOR))[0];
     if (!local || !other) throw new Error("missing conversation");
@@ -121,7 +122,7 @@ describe("chat list, photos, and session context", () => {
   it("removes one conversation and its messages without touching another vendor or saved bookings", async () => {
     const db = await open();
     await ingestInbound(db, LOCAL_VENDOR_ID, inbound(), silentAi);
-    await ingestInbound(db, OTHER_VENDOR, inbound({ threadId: "thread-2", zaloMsgId: "m-other" }), silentAi);
+    await ingestInbound(db, OTHER_VENDOR, inbound({ threadId: "thread-2", externalMsgId: "m-other" }), silentAi);
     const local = (await listVendorConversations(db, LOCAL_VENDOR_ID))[0];
     const other = (await listVendorConversations(db, OTHER_VENDOR))[0];
     if (!local || !other) throw new Error("missing conversation");

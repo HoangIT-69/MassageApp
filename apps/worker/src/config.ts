@@ -33,6 +33,7 @@ export type WorkerEnv = {
   vendorId: string;
   deepinfraApiKey: string;
   objectStore: ObjectStoreConfig;
+  facebookPageAccessToken: string;
 };
 
 function objectStoreFromEnv(): ObjectStoreConfig {
@@ -62,5 +63,6 @@ export function loadWorkerEnv(): WorkerEnv {
     vendorId: process.env.VENDOR_ID?.trim() || "local",
     deepinfraApiKey: process.env.DEEPINFRA_API_KEY?.trim() ?? "",
     objectStore: objectStoreFromEnv(),
+    facebookPageAccessToken: process.env.FB_PAGE_ACCESS_TOKEN?.trim() ?? "",
   };
 }

@@ -1,26 +1,20 @@
 import {
   CloseReason,
   LoginQRCallbackEventType,
-  ThreadType,
   Zalo,
   type API,
   type LoginQRCallbackEvent,
 } from "zca-js";
 import {
-  attachmentPayload,
   clearCredentials,
-  completeOutboxSend,
   createDeepInfraClient,
-  createObjectStore,
   ensureShopSeed,
   ingestInbound,
-  loadPhotoBytes,
   openDatabase,
   readCredentials,
   readRelink,
   setAwaitingQr,
   setZaloConnected,
-  takeOutbox,
   toQrDataUrl,
   writeCredentials,
   type AiClient,
@@ -29,9 +23,12 @@ import {
 } from "@zalo/core";
 import { ZALO_USER_AGENT, type WorkerEnv } from "./config";
 import { toInbound } from "./map-message";
+import { startOutboxLoop, type SenderRegistry } from "./outbox";
 import { enrichInbound } from "./peer";
+import { createFacebookSender } from "./senders/facebook";
+import { createZaloSender } from "./senders/zalo";
 
-const OUTBOX_POLL_MS = 1000;
+const RELINK_POLL_MS = 1000;
 
 function cookieJar(value: unknown): unknown {
   if (typeof value === "object" && value !== null && "cookies" in value) return value.cookies;
@@ -124,22 +121,6 @@ function attachListener(api: API, db: AppDatabase, env: WorkerEnv, ai: AiClient)
   console.info("Đã kết nối Zalo. Đang nghe tin nhắn.");
 }
 
-function watchOutbox(api: API, db: AppDatabase, env: WorkerEnv, seenRelink: number): () => void {
-  let flushing = false;
-  const timer = setInterval(() => {
-    if (flushing) return;
-    flushing = true;
-    void (async () => {
-      if ((await readRelink(db, env.vendorId)) !== seenRelink) return;
-      await flushOutbox(api, db, env);
-    })().finally(() => {
-      flushing = false;
-    });
-  }, OUTBOX_POLL_MS);
-  timer.unref?.();
-  return () => clearInterval(timer);
-}
-
 function waitForRelink(db: AppDatabase, vendorId: string, seenRelink: number, api: API): Promise<number> {
   return new Promise((resolve) => {
     const timer = setInterval(() => {
@@ -149,7 +130,7 @@ function waitForRelink(db: AppDatabase, vendorId: string, seenRelink: number, ap
         stopListener(api);
         resolve(current);
       });
-    }, OUTBOX_POLL_MS);
+    }, RELINK_POLL_MS);
     timer.unref?.();
   });
 }
@@ -160,6 +141,7 @@ async function holdSession(
   env: WorkerEnv,
   ai: AiClient,
   seenRelink: number,
+  senders: SenderRegistry,
 ): Promise<number> {
   const profile = await api.fetchAccountInfo().catch(() => null);
   if ((await readRelink(db, env.vendorId)) !== seenRelink) {
@@ -168,16 +150,25 @@ async function holdSession(
   }
   await setZaloConnected(db, env.vendorId, displayNameFrom(profile));
   attachListener(api, db, env, ai);
-  const stopFlush = watchOutbox(api, db, env, seenRelink);
-  const nextRelink = await waitForRelink(db, env.vendorId, seenRelink, api);
-  stopFlush();
-  return nextRelink;
+  senders.add(createZaloSender(api, env));
+  try {
+    return await waitForRelink(db, env.vendorId, seenRelink, api);
+  } finally {
+    senders.remove("zalo");
+  }
 }
 
 export async function startWorker(env: WorkerEnv): Promise<void> {
   const db = await openDatabase(env.databaseUrl);
   await ensureShopSeed(db, env.vendorId);
   const ai = createDeepInfraClient({ apiKey: env.deepinfraApiKey });
+  // Bật hàng chờ gửi trước vòng lặp Zalo: connect() chặn cho đến khi quét QR xong,
+  // nếu để sau thì Facebook không gửi được gì khi Zalo chưa liên kết.
+  const senders = startOutboxLoop(db, env);
+  if (env.facebookPageAccessToken) {
+    senders.add(createFacebookSender(env.facebookPageAccessToken));
+    console.info("Đã bật kênh Facebook.");
+  }
   let seenRelink = await readRelink(db, env.vendorId);
   for (;;) {
     const api = await connect(env, db);
@@ -187,27 +178,7 @@ export async function startWorker(env: WorkerEnv): Promise<void> {
       clearCredentials(env.credentialsPath);
       continue;
     }
-    seenRelink = await holdSession(api, db, env, ai, seenRelink);
+    seenRelink = await holdSession(api, db, env, ai, seenRelink, senders);
     clearCredentials(env.credentialsPath);
-  }
-}
-
-async function flushOutbox(api: API, db: AppDatabase, env: WorkerEnv): Promise<void> {
-  const batch = await takeOutbox(db, env.vendorId);
-  for (const item of batch) {
-    const type = item.threadType === "group" ? ThreadType.Group : ThreadType.User;
-    try {
-      if (item.attachmentPath) {
-        const body = await loadPhotoBytes(createObjectStore(env.objectStore), env.dataDir, item.attachmentPath);
-        const file = attachmentPayload(item.attachmentPath, body);
-        await api.sendMessage({ msg: item.content, attachments: [file] }, item.threadId, type);
-      } else {
-        await api.sendMessage({ msg: item.content }, item.threadId, type);
-      }
-      await completeOutboxSend(db, env.vendorId, item.id, true);
-    } catch (error) {
-      await completeOutboxSend(db, env.vendorId, item.id, false);
-      console.error(error instanceof Error ? error.message : "send failed");
-    }
   }
 }

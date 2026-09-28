@@ -27,7 +27,7 @@ export default function ConversationListScreen() {
         const link = await api<ZaloStatus>("/api/zalo/status", token);
         setStatus(link.status);
         setAiAll(link.aiAll);
-        if (link.status !== "connected") return;
+        // Danh sách không phụ thuộc trạng thái Zalo: chat Facebook vẫn phải thấy được.
         const payload = await api<{ conversations: Conversation[] }>("/api/conversations", token);
         setItems(payload.conversations);
         setError("");
@@ -112,7 +112,6 @@ export default function ConversationListScreen() {
 
   if (!ready || (token && status === null && !error)) return <LoadingState />;
   if (!token) return <Redirect href="/login" />;
-  if (status && status !== "connected") return <Redirect href="/qr" />;
 
   return (
     <View style={styles.screen}>
@@ -142,6 +141,12 @@ export default function ConversationListScreen() {
           <ErrorText message={error} />
         </View>
       ) : null}
+      {status && status !== "connected" ? (
+        <View style={styles.offline}>
+          <Text style={styles.offlineText}>{copy.zaloOffline}</Text>
+          <HeaderButton label={copy.zaloConnect} onPress={() => router.push("/qr")} />
+        </View>
+      ) : null}
       <FlatList
         data={items ?? []}
         keyExtractor={(item) => item.id}
@@ -162,6 +167,15 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.listBg },
   empty: { textAlign: "center", color: theme.muted, marginTop: spacing.xl },
   errorWrap: { padding: spacing.md },
+  offline: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: theme.zaloBlue,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  offlineText: { color: theme.headerText, fontWeight: "600" },
   actions: { flexDirection: "row", alignItems: "center" },
   allAi: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
   allAiLabel: { color: theme.headerText, fontWeight: "700" },

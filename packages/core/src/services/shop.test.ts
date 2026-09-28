@@ -68,11 +68,12 @@ function inbound(overrides: Partial<InboundInput> = {}): InboundInput {
     threadType: "user",
     title: "An",
     avatarUrl: null,
+    channel: "zalo",
     overwriteTitle: true,
     content: "đặt body",
     isText: true,
     isSelf: false,
-    zaloMsgId: "m-1",
+    externalMsgId: "m-1",
     timestamp: 1_700_000_000_000,
     ...overrides,
   };
@@ -155,7 +156,7 @@ describe("booking draft and tenant isolation", () => {
         return 'Giữ chỗ giúp bạn [SEND_PHOTOS:missing]\n[BOOKING]{"serviceName":"Massage body 60 phút","staffName":"Lan","whenText":"thứ 7 15:00","customerName":"An","phone":"0902000000"}[/BOOKING]';
       },
     };
-    await ingestInbound(db, LOCAL_VENDOR_ID, inbound({ zaloMsgId: "seed" }), ai);
+    await ingestInbound(db, LOCAL_VENDOR_ID, inbound({ externalMsgId: "seed" }), ai);
     const [conversation] = await listVendorConversations(db, LOCAL_VENDOR_ID);
     await setConversationAi(db, LOCAL_VENDOR_ID, conversation.id, true);
     await saveCustomerProfile(db, LOCAL_VENDOR_ID, conversation.id, {
@@ -166,7 +167,7 @@ describe("booking draft and tenant isolation", () => {
     await ingestInbound(
       db,
       LOCAL_VENDOR_ID,
-      inbound({ content: "chiều thứ 7", zaloMsgId: "m-2", timestamp: 1_700_000_000_100 }),
+      inbound({ content: "chiều thứ 7", externalMsgId: "m-2", timestamp: 1_700_000_000_100 }),
       ai,
     );
     const queued = await takeOutbox(db, LOCAL_VENDOR_ID);
